@@ -1,0 +1,70 @@
+# Terraform / Tofu files
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+**/tfplan*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+.terraform.lock.hcl
+
+# Terraform variables (behalve examples)
+terraform.tfvars
+*.tfvars
+!*.tfvars.example
+
+# Kubeconfig bestanden
+**/rke2.yaml
+**/rke2-direct.yaml
+**/*.kubeconfig
+**/*.yaml.tmp
+
+# RKE2 token bestanden
+**/node-token.txt
+
+# Logs
+*.log
+
+# SSH keys
+**/*.pem
+**/*.key
+id_rsa*
+*.ppk
+
+# Credentials/secrets
+**/*secret*
+**/*credential*
+**/*password*
+**/ovh-credentials.yaml
+
+# MacOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux specific
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Editor specific
+.vscode/
+.idea/
+*.swp
+*.swo
+*~ 

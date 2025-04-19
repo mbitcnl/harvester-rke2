@@ -1,0 +1,172 @@
+#cloud-config
+
+hostname: ${hostname}
+
+# Security best practice: Gebruik alleen SSH key authenticatie, geen wachtwoorden
+# Uncomment onderstaande regels alleen voor debug doeleinden
+#password: changeme-debug-only
+#chpasswd:
+#  expire: false
+#ssh_pwauth: true
+
+ssh_authorized_keys:
+  - ${ssh_public_key}
+
+packages:
+  - curl
+  - iptables
+  - qemu-guest-agent
+  - open-iscsi
+
+write_files:
+# Netwerk configuratie als fallback
+- path: /etc/netplan/60-static-config.yaml
+  permissions: '0644'
+  content: |
+    network:
+      version: 2
+      ethernets:
+        ${vip_interface}:
+          dhcp4: false
+          addresses:
+            - ${ip_address}/${netmask}
+          routes:
+            - to: default
+              via: ${gateway}
+          nameservers:
+            addresses: [${dns_server}]
+
+# RKE2 configuratie voor master nodes
+- path: /etc/rancher/rke2/config.yaml
+  permissions: '0600'
+  content: |
+    token: ${rke2_token}
+    %{~ if !is_first && server_url != "" ~}
+    server: ${server_url}
+    %{~ endif ~}
+    write-kubeconfig-mode: "0644"
+    node-ip: ${ip_address}
+    %{~ if is_first ~}
+    cluster-init: true
+    %{~ endif ~}
+    tls-san:
+      - ${ip_address}
+      %{~ if vip != "" ~}
+      - ${vip}
+      %{~ endif ~}
+
+# Directory aanmaken voor kubeconfig
+- path: /root/.kube
+  permissions: '0700'
+  content: ""
+
+runcmd:
+  # Netwerk configuratie toepassen
+  - netplan apply
+  # QEMU Guest Agent installeren en starten
+  - apt-get update && apt-get install -y curl iptables qemu-guest-agent open-iscsi || true
+  - systemctl enable qemu-guest-agent
+  - systemctl start qemu-guest-agent
+  # RKE2 installeren en starten
+  - curl -sfL https://get.rke2.io | INSTALL_RKE2_VERSION="v1.26.11+rke2r1" INSTALL_RKE2_TYPE="server" sh -
+  - systemctl enable rke2-server.service
+  # Zorg ervoor dat de manifests directory bestaat vóór we bestanden erin schrijven
+  - mkdir -p /var/lib/rancher/rke2/server/manifests
+  # Maak kube-vip manifest direct aan met de shell
+  %{~ if is_first && vip != "" ~}
+  - |
+    cat > /var/lib/rancher/rke2/server/manifests/kube-vip-rbac.yaml << EOF
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: kube-vip
+      namespace: kube-system
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: system:kube-vip-role
+    rules:
+      - apiGroups: [""]
+        resources: ["services", "services/status", "nodes", "endpoints"]
+        verbs: ["list", "get", "watch", "update"]
+      - apiGroups: ["coordination.k8s.io"]
+        resources: ["leases"]
+        verbs: ["list", "get", "watch", "update", "create"]
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: system:kube-vip-binding
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: system:kube-vip-role
+    subjects:
+    - kind: ServiceAccount
+      name: kube-vip
+      namespace: kube-system
+    EOF
+  - chmod 0644 /var/lib/rancher/rke2/server/manifests/kube-vip-rbac.yaml
+  - |
+    cat > /var/lib/rancher/rke2/server/manifests/kube-vip.yaml << EOF
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: kube-vip
+      namespace: kube-system
+      labels:
+        tier: control-plane
+        component: kube-vip
+    spec:
+      serviceAccountName: kube-vip
+      containers:
+        - name: kube-vip
+          image: ghcr.io/kube-vip/kube-vip:v0.6.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - manager
+          env:
+            - name: vip_arp
+              value: "true"
+            - name: port
+              value: "6443"
+            - name: vip_interface
+              value: "enp1s0"
+            - name: vip_cidr
+              value: "32"
+            - name: cp_enable
+              value: "true"
+            - name: cp_namespace
+              value: kube-system
+            - name: vip_address
+              value: "${vip}"
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
+                - NET_RAW
+      hostNetwork: true
+    EOF
+  - chmod 0644 /var/lib/rancher/rke2/server/manifests/kube-vip.yaml
+  %{~ endif ~}
+  # Wacht even zodat RKE2 alle voorbereidingen kan afronden
+  - sleep 15
+  # Start RKE2 server en controleer status
+  - systemctl start rke2-server.service || true
+  - sleep 30
+  - systemctl status rke2-server.service || true
+  - ls -la /var/lib/rancher/rke2/server/manifests/ || true
+  # Extra diagnostiek
+  - journalctl -u rke2-server.service --no-pager -n 20 || true
+  # Symlink kubectl en andere tools
+  - ln -sf /var/lib/rancher/rke2/bin/kubectl /usr/local/bin/kubectl
+  - echo "export PATH=\$PATH:/var/lib/rancher/rke2/bin" >> /root/.bashrc
+  - echo "export KUBECONFIG=/etc/rancher/rke2/rke2.yaml" >> /root/.profile
+  - echo "export KUBECONFIG=/etc/rancher/rke2/rke2.yaml" >> /root/.bashrc
+  - echo "alias k=kubectl" >> /root/.bashrc
+  # Kopieer kubeconfig voor root (met verbeterde foutafhandeling)
+  - rm -rf /root/.kube
+  - mkdir -p /root/.kube
+  - cp /etc/rancher/rke2/rke2.yaml /root/.kube/config || true
+  - sed -i 's/127.0.0.1/${ip_address}/g' /root/.kube/config || true 

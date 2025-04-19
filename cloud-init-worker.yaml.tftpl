@@ -1,0 +1,67 @@
+#cloud-config
+
+hostname: ${hostname}
+
+# Security best practice: Gebruik alleen SSH key authenticatie, geen wachtwoorden
+# Uncomment onderstaande regels alleen voor debug doeleinden
+#password: changeme-debug-only
+#chpasswd:
+#  expire: false
+#ssh_pwauth: true
+
+ssh_authorized_keys:
+  - ${ssh_public_key}
+
+packages:
+  - curl
+  - iptables
+  - qemu-guest-agent
+  - open-iscsi
+
+write_files:
+# Netwerk configuratie als fallback
+- path: /etc/netplan/60-static-config.yaml
+  permissions: '0644'
+  content: |
+    network:
+      version: 2
+      ethernets:
+        ${vip_interface}:
+          dhcp4: false
+          addresses:
+            - ${ip_address}/${netmask}
+          routes:
+            - to: default
+              via: ${gateway}
+          nameservers:
+            addresses: [${dns_server}]
+
+# RKE2 configuratie voor worker nodes
+- path: /etc/rancher/rke2/config.yaml
+  permissions: '0600'
+  content: |
+    token: ${rke2_token}
+    server: ${server_url}
+    write-kubeconfig-mode: "0644"
+    node-ip: ${ip_address}
+    node-label:
+      - "topology.kubernetes.io/region=harvester"
+      # Kubernetes 1.26+ staat niet toe dat node-role labels direct worden toegevoegd
+      # De worker rol wordt later handmatig toegevoegd via kubectl
+
+runcmd:
+  # Netwerk configuratie toepassen
+  - netplan apply
+  # QEMU Guest Agent installeren en starten
+  - apt-get update
+  - apt-get install -y qemu-guest-agent
+  - systemctl enable qemu-guest-agent
+  - systemctl start qemu-guest-agent
+  # RKE2 installeren en starten
+  - curl -sfL https://get.rke2.io | INSTALL_RKE2_TYPE="agent" INSTALL_RKE2_VERSION="v1.26.11+rke2r1" sh -
+  - systemctl enable rke2-agent.service
+  - systemctl start rke2-agent.service
+  # Symlink kubectl en andere tools
+  - ln -sf /var/lib/rancher/rke2/bin/kubectl /usr/local/bin/kubectl
+  - echo "export PATH=\$PATH:/var/lib/rancher/rke2/bin" >> /root/.bashrc
+  - echo "alias k=kubectl" >> /root/.bashrc 

@@ -1,0 +1,38 @@
+harvester_kubeconfig_path = "/path/to/your/harvester-kubeconfig.yaml"
+
+# Harvester Configuratie
+namespace                = "default"
+network_name             = "default-network"
+
+# VM Resources
+master_count             = 3
+worker_count             = 3
+master_cpu               = 2
+master_memory            = 4096  # 4GB
+master_disk_size         = "40Gi"
+worker_cpu               = 4
+worker_memory            = 8192  # 8GB
+worker_disk_size         = "80Gi"
+
+# Netwerk Configuratie
+master_ip_prefix         = "192.168.1."   # Masters: 192.168.1.101, 192.168.1.102, 192.168.1.103
+worker_ip_prefix         = "192.168.1."   # Workers: 192.168.1.201, 192.168.1.202, 192.168.1.203
+netmask                  = "24"
+gateway                  = "192.168.1.1"
+nameserver               = "192.168.1.1" 
+control_plane_vip        = "192.168.1.50"
+network_interface        = "enp1s0"  # Standaard netwerk interface naam in Ubuntu 22.04
+
+# RKE2 Configuratie
+# LET OP: Dit is een initieel token. Het volledige token (met CA hash) 
+# wordt automatisch opgehaald van de master en gebruikt door worker nodes.
+rke2_token               = "je-basis-token-hier-wijzigen" # Verander dit voor productie!
+ssh_username             = "ubuntu"
+ssh_public_key           = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... your-public-key"  # Plaats hier je eigen public key
+
+# Ubuntu Image
+ubuntu_image_url         = "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
+ubuntu_image_name        = "ubuntu-22.04"
+
+# Optionele parameters
+# ubuntu_image_namespace   = "andere-namespace"  # Alleen nodig als de image in een andere namespace moet staan 

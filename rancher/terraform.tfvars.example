@@ -1,0 +1,7 @@
+kubeconfig_path           = "../rke2-direct.yaml"
+rancher_hostname         = "rancher.voorbeeld.nl"
+rancher_bootstrap_password = "VervangMetEenSterkWachtwoord"
+lets_encrypt_email       = "admin@voorbeeld.nl"
+lets_encrypt_environment = "staging"  # gebruik "staging" voor testen, "production" voor productie
+
+# Opmerking: Kubernetes wijst automatisch een NodePort toe voor Rancher 
