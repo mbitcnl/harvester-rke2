@@ -49,7 +49,7 @@ De worker nodes worden ingesteld om exact dezelfde RKE2 versie te gebruiken als 
 
    - Maak `terraform.tfvars` aan op basis van `terraform.tfvars.example`
    - Maak `rancher/terraform.tfvars` aan op basis van `rancher/terraform.tfvars.example`
-   - Maak `traefik/terraform.tfvars` aan op basis van `traefik/terraform.tfvars.example`
+
 
 3. **Volledige deployment uitvoeren**
 
@@ -62,7 +62,6 @@ De worker nodes worden ingesteld om exact dezelfde RKE2 versie te gebruiken als 
    - RKE2 Kubernetes cluster installeren
    - Kubeconfig ophalen en configureren
    - Rancher management platform installeren
-   - Traefik en cert-manager met Let's Encrypt configureren
 
 ## Stapsgewijze uitrol (handmatig)
 
@@ -107,7 +106,6 @@ tofu apply tfplan-traefik
 Na de installatie zijn de volgende URL's beschikbaar:
 
 - **Rancher dashboard**: `https://rancher.example.com`
-- **Traefik dashboard**: `https://traefik.example.com` (met BasicAuth beveiliging)
 
 ## Onderhoud
 
@@ -118,11 +116,6 @@ export KUBECONFIG=rke2.yaml  # of rke2-direct.yaml voor directe toegang
 kubectl get nodes -o wide
 ```
 
-### Certificaten controleren
-
-```bash
-kubectl get certificates -A
-```
 
 ### Kubernetes dashboard
 
@@ -132,7 +125,7 @@ Toegang tot het dashboard is mogelijk via Rancher of direct via kubectl-proxy.
 
 - De bootstrap admin credentials voor Rancher moeten direct na de eerste login worden gewijzigd
 - SSH sleutels voor VM toegang moeten veilig worden bewaard
-- API credentials (zoals OVH) moeten veilig worden opgeslagen en niet worden ingecheckt in de repository
+
 
 ## Problemen oplossen
 
@@ -209,6 +202,3 @@ kubectl describe ingress -n cattle-system
 
 Pull requests zijn welkom. Voor grote wijzigingen, open eerst een issue om te bespreken wat je wilt veranderen.
 
-## Licentie
-
-[MIT](https://choosealicense.com/licenses/mit/) 
